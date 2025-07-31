@@ -13,12 +13,12 @@ const Home = () => {
 
 
   return (
-    <div className="flex justify-center items-center h-screen">
+    <div className="flex justify-center items-center h-screen border-2 border-gray-100">
       {console.log(userName)}
-      <input placeholder='Entere name' className='py-3 text-center mr-4' onChange={(e)=>{setUserName(e.target.value)}}></input>
+      <input placeholder='Entere name' className='py-3 text-center mr-4 border-2 border-gray-300 rounded' onChange={(e)=>{setUserName(e.target.value)}}></input>
 
 
-        <button className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded ' onClick={onsubmit}> on Click</button>
+        <button className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded ' onClick={onsubmit}> On Click</button>
 
 
 

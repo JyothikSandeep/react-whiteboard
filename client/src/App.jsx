@@ -6,12 +6,15 @@ import { Layout } from './components/Layout';
 import Room from './components/Room';
 // import Body from './components/Body';
 import Home from './components/Home';
+import.meta.env.VITE_API_URL
 function App() {
-  
+  const apiUrl = import.meta.env.VITE_API_URL;
+
 
   return (
     <>
     <BrowserRouter>
+    {console.log(apiUrl)}
     <Routes>
       <Route path='/' element={<Layout></Layout>}>
         <Route index element={<Home></Home>}></Route>

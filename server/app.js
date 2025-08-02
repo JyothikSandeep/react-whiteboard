@@ -5,13 +5,17 @@ const { Server } = require("socket.io");
 const cors = require("cors");
 const server = http.createServer(app);
 // Routes
+require('dotenv').config();
+
+const PORT = process.env.PORT || 8000;
+
 const { BasicRouter } = require("./Router/BasicRouter");
 
 const rooms = {};
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: "https://scrriblelink.netlify.app/",
     methods: ["GET", "POST"],
   },
 });
@@ -66,6 +70,6 @@ io.on("connection", (socket) => {
 
 app.use("/", BasicRouter);
 
-server.listen(8000, () => {
+server.listen(PORT, () => {
   console.log("server is listening to the port");
 });

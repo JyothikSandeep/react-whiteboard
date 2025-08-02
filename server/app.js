@@ -29,27 +29,31 @@ io.on("connection", (socket) => {
 
     if (!rooms[roomId]) {
       socket.join(roomId);
-      rooms[roomId] = { adminId: socket.id, users: [] };
+      rooms[roomId] = { adminId:{ id:socket.id,userName:currrentuser}, users: [] };
+      console.log(rooms)
 
       socket.emit("identifiedAdmin");
     } else {
-      const adminID = rooms[roomId].adminId;
+      const adminID = rooms[roomId].adminId.id;
+      console.log(rooms);
       io.to(adminID).emit("join_approval", {
         socketId: socket.id,
         userName: currrentuser,
       });
     }
 
-    socket.on("aprove_user", ({ roomId, socketId }) => {
-      console.log("this is approved user", roomId);
-      io.to(socketId).emit("approved");
+    socket.on("aprove_user", ({ roomId, socketId ,username}) => {
+      console.log("this is approved user", roomId,username);
+      io.to(socketId).emit("approved",{username});
     });
 
-    socket.on("final_join", ({ roomId }) => {
+    socket.on("final_join", ({ roomId,username }) => {
       socket.join(roomId);
-      rooms[roomId].users.push(socket.id);
-      console.log(rooms);
-      io.to(roomId).emit("user_joined", { socketId: socket.id });
+      console.log(username)
+      rooms[roomId].users.push({id:socket.id,userName:username});
+      // console.log(rooms);
+      console.log(JSON.stringify(rooms, null, 10));
+      io.to(roomId).emit("user_joined", { socketId: socket.id ,username});
     });
 
     //to draw

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import socket from "../Socket";
+import './WhiteBoard.css';
 
 const WhiteBoard = ({ state: roomId }) => {
   const canvasRef = useRef(null);
@@ -9,9 +10,11 @@ const WhiteBoard = ({ state: roomId }) => {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    canvas.style.background = "#f0f0f0";
+  // Get the actual display size of the canvas in pixels
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width;
+  canvas.height = rect.height;
+  // canvas.style.background = "#f0f0f0";
 
     const ctx = canvas.getContext("2d");
     ctx.lineCap = "round";
@@ -34,9 +37,13 @@ const WhiteBoard = ({ state: roomId }) => {
   }, []);
 
   const getCoordinates = (e) => {
-    return { x: e.clientX, y: e.clientY };
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
   };
-
   const handleMouseDown = (e) => {
     isDrawing.current = true;
     const { x, y } = getCoordinates(e);
@@ -74,15 +81,19 @@ const WhiteBoard = ({ state: roomId }) => {
 
   return (
     <div>
-      <p className="text-center font-bold text-xl my-2">Whiteboard</p>
+
+      <div className="whiteboard-container">
+      {/* <p className="whiteboard-title">Whiteboard</p> */}
       <canvas
         ref={canvasRef}
-        className="w-full h-full bg-white cursor-crosshair"
+        className="whiteboard-canvas"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-      />
+        />
+        </div>
+        
     </div>
   );
 };

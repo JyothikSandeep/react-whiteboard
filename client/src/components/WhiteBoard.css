@@ -1,0 +1,32 @@
+.whiteboard-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 90vh;
+  background: #F6F8FC;
+  border-radius: 1rem;
+  box-shadow: 0 4px 24px rgba(80, 80, 130, 0.07);
+  padding: 1rem;
+  /* background-color: #222B45; */
+
+}
+.whiteboard-title {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #222B45;
+  margin: 0.5rem 0;
+  text-align: center;
+
+}
+.whiteboard-canvas {
+  width: 100%;
+  height: 100%;
+  background: #e3f0ff; /* Soft cool blue */
+   /* background-color: #222B45; */
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 8px rgba(80,80,130,0.04) inset;
+  border: 1px solid #E3E8F0;
+  cursor: crosshair;
+  display: block;
+}

@@ -33,18 +33,21 @@ const Room = () => {
     });
     //it will intimate who was joining
     socket.on("join_approval", ({ socketId, userName }) => {
+
       console.log(currrentuser, "is waiting for approval");
 
-      setJoinRequests((prev) => [...prev, userName]);
+      
+      setJoinRequests((prev) => [...prev, {id:socketId,userName:userName}]);
     });
 
     socket.on("aproved_user", ({ socketId }) => {
       console.log("hello you are approved");
     });
 
-    socket.on("approved", () => {
-      console.log("you are approved Bro!");
-      socket.emit("final_join", { roomId });
+    socket.on("approved", ({username}) => {
+
+      console.log("you are approved Bro!",username,socket.id);
+      socket.emit("final_join", { roomId ,username});
     });
 
     socket.on("user_joined", ({ socketId }) => {
@@ -56,9 +59,10 @@ const Room = () => {
     }
   }, [currrentuser, roomId]);
 
-  const onAdmit = (socketId) => {
-    socket.emit("aprove_user", { roomId, socketId });
-    setJoinRequests(joinRequests.filter((d) => d !== socketId));
+  const onAdmit = (username,socketId) => {
+    console.log(username,socketId);
+    socket.emit("aprove_user", { roomId, socketId ,username});
+    setJoinRequests(joinRequests.filter((d) => d.id !== socketId));
   };
 
   return (
@@ -92,15 +96,16 @@ const Room = () => {
           <p>{isAdmin ? <>this is admin</> : <>This is not admin</>}</p>
           <div className="flex justify-center">
             <div className=" w-1/3  border-2 ">
+            {console.log(joinRequests)}
               {joinRequests.map((d) => {
                 return (
-                  <div key={d}>
+                  <div key={d.id}>
                     <div className="flex gap-4 mt-3 text-center">
                       {console.log(d)}
-                      <p>{d}</p>
+                      <p>{d.userName}</p>
                       <button
                         className="bg-gray-400 rounded py-2 px-3  "
-                        onClick={() => onAdmit(d)}
+                        onClick={(e) => onAdmit(d.userName,d.id)}
                       >
                         Admit
                       </button>

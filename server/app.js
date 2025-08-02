@@ -15,7 +15,7 @@ const rooms = {};
 
 const io = new Server(server, {
   cors: {
-    origin: "https://scrriblelink.netlify.app/",
+    origin: "https://scrriblelink.netlify.app",
     methods: ["GET", "POST"],
   },
 });

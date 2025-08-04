@@ -15,7 +15,7 @@ const rooms = {};
 
 const io = new Server(server, {
   cors: {
-    origin: "https://scrriblelink.netlify.app",
+    origin: ["https://scrriblelink.netlify.app","http://localhost:5173"],
     methods: ["GET", "POST"],
   },
 });
@@ -33,9 +33,8 @@ io.on("connection", (socket) => {
 
     if (!rooms[roomId]) {
       socket.join(roomId);
-      rooms[roomId] = { adminId:{ id:socket.id,userName:currrentuser}, users: [] };
-      console.log(rooms)
-
+      rooms[roomId] = { adminId:{ id:socket.id,userName:currrentuser}, users: [{id: socket.id, userName: currrentuser}] };
+      io.to(roomId).emit("user_list", { users: rooms[roomId].users });
       socket.emit("identifiedAdmin");
     } else {
       const adminID = rooms[roomId].adminId.id;
@@ -53,17 +52,50 @@ io.on("connection", (socket) => {
 
     socket.on("final_join", ({ roomId,username }) => {
       socket.join(roomId);
-      console.log(username)
-      rooms[roomId].users.push({id:socket.id,userName:username});
-      // console.log(rooms);
-      console.log(JSON.stringify(rooms, null, 10));
+      if (!rooms[roomId].users.some(u => u.id === socket.id)) {
+        rooms[roomId].users.push({id:socket.id,userName:username});
+      }
       io.to(roomId).emit("user_joined", { socketId: socket.id ,username});
+      io.to(roomId).emit("user_list", { users: rooms[roomId].users });
+    });
+
+    // Send user list on request
+    socket.on("get_users", ({ roomId }) => {
+      if (rooms[roomId]) {
+        socket.emit("user_list", { users: rooms[roomId].users });
+      }
+    });
+
+    // Remove user on disconnect and update user list
+    socket.on("disconnect", () => {
+      for (const rId in rooms) {
+        const before = rooms[rId].users.length;
+        rooms[rId].users = rooms[rId].users.filter(u => u.id !== socket.id);
+        if (rooms[rId].users.length !== before) {
+          io.to(rId).emit("user_list", { users: rooms[rId].users });
+        }
+      }
     });
 
     //to draw
     socket.on("draw", ({ roomId, x0, y0, x1, y1 }) => {
       console.log(roomId, x0, y0, x1, y1);
       io.to(roomId).emit("draw", { x0, y0, x1, y1 });
+    });
+
+    // Collaborative clear-board
+    socket.on("clear-board", ({ roomId }) => {
+      io.to(roomId).emit("clear-board");
+    });
+
+    // Chat message
+    socket.on("chat_message", ({ roomId, ...msg }) => {
+      io.to(roomId).emit("chat_message", msg);
+    });
+
+    //cursur move
+    socket.on("cursor-move", ({ roomId, x, y, userName, userId }) => {
+      io.to(roomId).emit("cursor-move", { x, y, userName, userId });
     });
   });
 });

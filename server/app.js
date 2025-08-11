@@ -93,7 +93,6 @@ io.on("connection", (socket) => {
       io.to(roomId).emit("chat_message", msg);
     });
 
-<<<<<<< HEAD
     // --- WebRTC signaling relay ---
     socket.on("webrtc-offer", ({ roomId, to, from, offer }) => {
       socket.to(to).emit("webrtc-offer", { from, offer });
@@ -116,8 +115,6 @@ io.on("connection", (socket) => {
       socket.to(to).emit("webrtc-ice", { from, candidate });
     });
 
-=======
->>>>>>> 6f121e21ee7a07fea2812897580192ef4e45e8c4
     //cursur move
     socket.on("cursor-move", ({ roomId, x, y, userName, userId }) => {
       io.to(roomId).emit("cursor-move", { x, y, userName, userId });

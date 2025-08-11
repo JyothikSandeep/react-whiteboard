@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 
-<<<<<<< HEAD
 // Minimal WebRTC audio for all users in the room
 function WebRTCAudio({ roomId, userName, socket, isMuted }) {
   const [peerStreams, setPeerStreams] = useState({}); // { peerId: MediaStream }
@@ -16,28 +15,6 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
           console.log("[WebRTC] Got local mic stream");
           localStreamRef.current = stream;
           socket.emit("get_users", { roomId });
-=======
-/**
- * WebRTCAudio: Real-time voice chat (scaffold)
- * Props:
- * - roomId: string (required)
- * - userName: string (required)
- * - socket: socket.io client instance (required)
- * - isMuted: boolean (optional)
- */
-function WebRTCAudio({ roomId, userName, socket, isMuted }) {
-  const [peers, setPeers] = useState([]); // [{peerId, stream}]
-  const localStreamRef = useRef(null);
-  const audioRefs = useRef({});
-
-  // Get local audio (mic)
-  useEffect(() => {
-    if (!isMuted) {
-      navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-        .then(stream => {
-          localStreamRef.current = stream;
-          // TODO: send stream to peers via WebRTC
->>>>>>> 6f121e21ee7a07fea2812897580192ef4e45e8c4
         })
         .catch(err => {
           console.error("Could not get microphone:", err);
@@ -48,7 +25,6 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
         localStreamRef.current.getTracks().forEach(track => track.stop());
         localStreamRef.current = null;
       }
-<<<<<<< HEAD
       // Close all peer connections
       Object.values(peerConnections.current).forEach(pc => pc.close());
       peerConnections.current = {};
@@ -160,25 +136,6 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
       )}
     </div>
   );
-=======
-    }
-    // Cleanup on unmount
-    return () => {
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [isMuted]);
-
-  // TODO: WebRTC peer connection setup and signaling via socket.io
-  // - Listen for 'webrtc-offer', 'webrtc-answer', 'webrtc-ice' events
-  // - Create RTCPeerConnection for each peer
-  // - Add localStreamRef.current to connection
-  // - Play remote streams using <audio>
-
-  // UI: Mute/unmute button, show connected peers
-  return null;
->>>>>>> 6f121e21ee7a07fea2812897580192ef4e45e8c4
 }
 
 export default WebRTCAudio;

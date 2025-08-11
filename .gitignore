@@ -1,0 +1,19 @@
+# Global ignores
+node_modules/
+.env
+.DS_Store
+dist/
+build/
+.vscode/
+*.log
+
+# Client-side ignores
+client/node_modules/
+client/dist/
+client/build/
+client/.env
+
+# Server-side ignores
+server/node_modules/
+server/.env
+server/dist/

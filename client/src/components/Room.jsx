@@ -46,8 +46,11 @@ const Room = () => {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
+<<<<<<< HEAD
   const [unreadCount, setUnreadCount] = useState(0);
   const chatNotifSoundRef = useRef(null);
+=======
+>>>>>>> 6f121e21ee7a07fea2812897580192ef4e45e8c4
   const [micMuted, setMicMuted] = useState(true);
   const chatEndRef = useRef(null);
   const location = useLocation();
@@ -74,6 +77,7 @@ const Room = () => {
     // Chat: listen for messages
     socket.on("chat_message", (msg) => {
       setChatMessages((prev) => [...prev, msg]);
+<<<<<<< HEAD
       if (!chatOpen && msg.userName !== currrentuser) {
         setUnreadCount((c) => c + 1);
         if (chatNotifSoundRef.current) {
@@ -81,6 +85,8 @@ const Room = () => {
           chatNotifSoundRef.current.play();
         }
       }
+=======
+>>>>>>> 6f121e21ee7a07fea2812897580192ef4e45e8c4
     });
 
     //If user is admin it will identify
@@ -130,11 +136,14 @@ const Room = () => {
     };
   }, [currrentuser, roomId]);
 
+<<<<<<< HEAD
   // Reset unread chat count when chat is opened
   useEffect(() => {
     if (chatOpen) setUnreadCount(0);
   }, [chatOpen]);
 
+=======
+>>>>>>> 6f121e21ee7a07fea2812897580192ef4e45e8c4
   const onAdmit = (username,socketId) => {
     console.log(username,socketId);
     socket.emit("aprove_user", { roomId, socketId ,username});
@@ -332,6 +341,7 @@ const Room = () => {
                       </button>
                     )}
                     {console.log(usersDisplay)}
+<<<<<<< HEAD
                     <button className="relative flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-blue-100 border-2 border-gray-400 hover:border-blue-500 text-gray-700 transition"
             onClick={() => setChatOpen((v)=>!v)}
             title="Open chat"
@@ -342,6 +352,15 @@ const Room = () => {
             )}
           </button>
           <audio ref={chatNotifSoundRef} src="https://cdn.pixabay.com/audio/2022/03/15/audio_115b9c7b44.mp3" preload="auto" />
+=======
+                    <button className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-blue-100 border-2 border-gray-400 hover:border-blue-500 text-gray-700 transition"
+                      onClick={() => setChatOpen((prev) => !prev)}
+                      title="Open chat"
+                    >
+                      <MdChatBubbleOutline className="text-gray-700" size={20} />
+                      {/* Optionally, add badge for unread messages in the future */}
+                    </button>
+>>>>>>> 6f121e21ee7a07fea2812897580192ef4e45e8c4
                   </div>
                 </div>
               </div>

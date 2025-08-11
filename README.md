@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Introduction 
 TODO: Give a short introduction of your project. Let this section explain the objectives or the motivation behind this project. 
 
@@ -18,3 +19,19 @@ If you want to learn more about creating good readme files then refer the follow
 - [ASP.NET Core](https://github.com/aspnet/Home)
 - [Visual Studio Code](https://github.com/Microsoft/vscode)
 - [Chakra Core](https://github.com/Microsoft/ChakraCore)
+=======
+# react-whiteboard
+A live whiteboard app where multiple users can:
+
+Draw together in real time
+
+Chat using a real-time chat window
+
+Add animated sticky notes using GSAP
+
+See cursors of other users live
+
+Create rooms and collaborate with others
+
+
+>>>>>>> 6f121e21ee7a07fea2812897580192ef4e45e8c4

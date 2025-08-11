@@ -101,7 +101,18 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
       let makingOffer = false;
       let ignoreOffer = false;
       let isSettingRemoteAnswerPending = false;
-      const pc = new window.RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+      // Only STUN, no TURN: will not work for most users behind NAT/firewall
+      // This is not recommended for production, but is what the user requested
+      const pc = new window.RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" }
+        ]
+      });
+      // Debug ICE connection state
+      pc.oniceconnectionstatechange = () => {
+        console.log(`[WebRTC] ICE state for peer ${peerId}: ${pc.iceConnectionState}`);
+      };
+
       // Send local audio
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => pc.addTrack(track, localStreamRef.current));

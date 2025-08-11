@@ -8,30 +8,77 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
   const [myId, setMyId] = useState(socket.id);
 
   // Get local audio (mic) and handle peer connections
+  // Maintain peer connections regardless of mute state
   useEffect(() => {
-    if (!isMuted) {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
+    let stopped = false;
+    // Always connect to peers, but only add audio track if unmuted
+    const setupMic = async () => {
+      if (!isMuted) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
           console.log("[WebRTC] Got local mic stream");
           localStreamRef.current = stream;
-          socket.emit("get_users", { roomId });
-        })
-        .catch(err => {
+          // Add track to all existing peer connections and trigger negotiation
+          Object.values(peerConnections.current).forEach(pc => {
+            stream.getTracks().forEach(track => {
+              pc.addTrack(track, stream);
+              console.log(`[WebRTC] Added local audio track to peer connection`);
+            });
+            // Always trigger negotiation after adding track
+            if (pc.signalingState === "stable") {
+              pc.onnegotiationneeded && pc.onnegotiationneeded();
+            } else {
+              // If not stable, manually create and send offer
+              pc.createOffer().then(offer => {
+                pc.setLocalDescription(offer);
+                // Find the peerId by reverse lookup
+                const peerId = Object.keys(peerConnections.current).find(id => peerConnections.current[id] === pc);
+                if (peerId) {
+                  console.log(`[WebRTC] Sending offer to peer ${peerId} after track add`);
+                  socket.emit("webrtc-offer", { roomId, to: peerId, from: myId, offer: pc.localDescription });
+                }
+              });
+            }
+          });
+        } catch (err) {
           console.error("Could not get microphone:", err);
+        }
+      } else {
+        // Remove local audio track from all peer connections
+        Object.values(peerConnections.current).forEach(pc => {
+          pc.getSenders().forEach(sender => {
+            if (sender.track && sender.track.kind === "audio") {
+              sender.track.stop();
+              pc.removeTrack(sender);
+              console.log(`[WebRTC] Removed local audio track from peer connection`);
+            }
+          });
+          // Always trigger negotiation after removing track
+          if (pc.signalingState === "stable") {
+            pc.onnegotiationneeded && pc.onnegotiationneeded();
+          } else {
+            // If not stable, manually create and send offer
+            pc.createOffer().then(offer => {
+              pc.setLocalDescription(offer);
+              const peerId = Object.keys(peerConnections.current).find(id => peerConnections.current[id] === pc);
+              if (peerId) {
+                console.log(`[WebRTC] Sending offer to peer ${peerId} after track removal`);
+                socket.emit("webrtc-offer", { roomId, to: peerId, from: myId, offer: pc.localDescription });
+              }
+            });
+          }
         });
-    } else {
-      // Stop all tracks if muted
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => track.stop());
-        localStreamRef.current = null;
+        // Stop and clear local stream
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach(track => track.stop());
+          localStreamRef.current = null;
+        }
       }
-      // Close all peer connections
-      Object.values(peerConnections.current).forEach(pc => pc.close());
-      peerConnections.current = {};
-      setPeerStreams({});
-    }
+    };
+    setupMic();
+    // Cleanup only on component unmount
     return () => {
-      // Cleanup
+      stopped = true;
       Object.values(peerConnections.current).forEach(pc => pc.close());
       peerConnections.current = {};
       if (localStreamRef.current) {
@@ -46,9 +93,14 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
   useEffect(() => {
     if (!socket || !roomId || isMuted) return;
 
-    // Helper: create and manage a peer connection
+    // Helper: create and manage a peer connection with polite/impolite logic
     const createPeer = (peerId) => {
       if (peerConnections.current[peerId]) return peerConnections.current[peerId];
+      // Polite peer: the one with higher socket id
+      const polite = myId > peerId;
+      let makingOffer = false;
+      let ignoreOffer = false;
+      let isSettingRemoteAnswerPending = false;
       const pc = new window.RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
       // Send local audio
       if (localStreamRef.current) {
@@ -66,9 +118,31 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
           socket.emit("webrtc-ice", { roomId, to: peerId, from: myId, candidate: event.candidate });
         }
       };
+      // Negotiationneeded
+      pc.onnegotiationneeded = async () => {
+        try {
+          makingOffer = true;
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          console.log(`[WebRTC] Sending offer to peer ${peerId}`);
+          socket.emit("webrtc-offer", { roomId, to: peerId, from: myId, offer: pc.localDescription });
+        } catch (err) {
+          console.warn("[WebRTC] Negotiation error", err);
+        } finally {
+          makingOffer = false;
+        }
+      };
+      // Store polite/negotiation state for this peer
+      pc.__polite = polite;
+      pc.__makingOffer = () => makingOffer;
+      pc.__ignoreOffer = () => ignoreOffer;
+      pc.__setIgnoreOffer = v => { ignoreOffer = v; };
+      pc.__isSettingRemoteAnswerPending = () => isSettingRemoteAnswerPending;
+      pc.__setSettingRemoteAnswerPending = v => { isSettingRemoteAnswerPending = v; };
       peerConnections.current[peerId] = pc;
       return pc;
     };
+
 
     // When user list updates, connect to all peers
     const handleUserList = ({ users }) => {
@@ -86,14 +160,29 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
     };
     socket.on("user_list", handleUserList);
 
-    // Handle offer
+    // Handle offer (perfect negotiation pattern)
     socket.on("webrtc-offer", async ({ from, offer }) => {
       console.log(`[WebRTC] Received offer from peer ${from}`);
       const pc = createPeer(from);
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      socket.emit("webrtc-answer", { roomId, to: from, from: myId, answer });
+      const polite = pc.__polite;
+      let makingOffer = pc.__makingOffer();
+      let ignoreOffer = pc.__ignoreOffer();
+      let isSettingRemoteAnswerPending = pc.__isSettingRemoteAnswerPending();
+      try {
+        const offerCollision = makingOffer || pc.signalingState !== "stable";
+        ignoreOffer = !polite && offerCollision;
+        pc.__setIgnoreOffer(ignoreOffer);
+        if (ignoreOffer) {
+          console.log(`[WebRTC] Ignoring offer from peer ${from} due to collision`);
+          return;
+        }
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit("webrtc-answer", { roomId, to: from, from: myId, answer });
+      } catch (e) {
+        console.warn("[WebRTC] Offer handling error", e);
+      }
     });
     // Handle answer
     socket.on("webrtc-answer", async ({ from, answer }) => {

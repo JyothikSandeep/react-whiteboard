@@ -1,0 +1,11 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Scribble -->
+  <path d="M12 48 Q32 16 52 48" stroke="#4F8CFF" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- Link circles -->
+  <circle cx="12" cy="48" r="5" fill="#43D9A3" />
+  <circle cx="52" cy="48" r="5" fill="#FFA726" />
+  <!-- Link bar -->
+  <rect x="17" y="46" width="30" height="4" rx="2" fill="#A259FF"/>
+  <!-- Text -->
+  <text x="32" y="62" text-anchor="middle" font-size="13" font-family="Poppins, Arial, sans-serif" fill="#222B45" font-weight="bold">Scribble Link</text>
+</svg>

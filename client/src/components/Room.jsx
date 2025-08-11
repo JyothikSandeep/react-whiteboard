@@ -46,6 +46,8 @@ const Room = () => {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+  const chatNotifSoundRef = useRef(null);
   const [micMuted, setMicMuted] = useState(true);
   const chatEndRef = useRef(null);
   const location = useLocation();
@@ -72,6 +74,13 @@ const Room = () => {
     // Chat: listen for messages
     socket.on("chat_message", (msg) => {
       setChatMessages((prev) => [...prev, msg]);
+      if (!chatOpen && msg.userName !== currrentuser) {
+        setUnreadCount((c) => c + 1);
+        if (chatNotifSoundRef.current) {
+          chatNotifSoundRef.current.currentTime = 0;
+          chatNotifSoundRef.current.play();
+        }
+      }
     });
 
     //If user is admin it will identify
@@ -120,6 +129,11 @@ const Room = () => {
       socket.off("chat_message");
     };
   }, [currrentuser, roomId]);
+
+  // Reset unread chat count when chat is opened
+  useEffect(() => {
+    if (chatOpen) setUnreadCount(0);
+  }, [chatOpen]);
 
   const onAdmit = (username,socketId) => {
     console.log(username,socketId);
@@ -318,13 +332,16 @@ const Room = () => {
                       </button>
                     )}
                     {console.log(usersDisplay)}
-                    <button className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-blue-100 border-2 border-gray-400 hover:border-blue-500 text-gray-700 transition"
-                      onClick={() => setChatOpen((prev) => !prev)}
-                      title="Open chat"
-                    >
-                      <MdChatBubbleOutline className="text-gray-700" size={20} />
-                      {/* Optionally, add badge for unread messages in the future */}
-                    </button>
+                    <button className="relative flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-blue-100 border-2 border-gray-400 hover:border-blue-500 text-gray-700 transition"
+            onClick={() => setChatOpen((v)=>!v)}
+            title="Open chat"
+          >
+            <MdChatBubbleOutline className="text-gray-700" size={20} />
+            {unreadCount > 0 && !chatOpen && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-bounce z-10">{unreadCount}</span>
+            )}
+          </button>
+          <audio ref={chatNotifSoundRef} src="https://cdn.pixabay.com/audio/2022/03/15/audio_115b9c7b44.mp3" preload="auto" />
                   </div>
                 </div>
               </div>

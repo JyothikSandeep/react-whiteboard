@@ -12,6 +12,7 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
     if (!isMuted) {
       navigator.mediaDevices.getUserMedia({ audio: true })
         .then(stream => {
+          console.log("[WebRTC] Got local mic stream");
           localStreamRef.current = stream;
           socket.emit("get_users", { roomId });
         })
@@ -39,7 +40,7 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
       setPeerStreams({});
     };
     // eslint-disable-next-line
-  }, [isMuted]);
+  }, [isMuted, roomId]);
 
   // Handle signaling and peer setup
   useEffect(() => {
@@ -55,11 +56,13 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
       }
       // Handle remote audio
       pc.ontrack = (event) => {
+        console.log(`[WebRTC] Received remote stream from peer ${peerId}`);
         setPeerStreams(prev => ({ ...prev, [peerId]: event.streams[0] }));
       };
       // ICE candidates
       pc.onicecandidate = (event) => {
         if (event.candidate) {
+          console.log(`[WebRTC] Sending ICE candidate to ${peerId}`);
           socket.emit("webrtc-ice", { roomId, to: peerId, from: myId, candidate: event.candidate });
         }
       };
@@ -70,10 +73,12 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
     // When user list updates, connect to all peers
     const handleUserList = ({ users }) => {
       users.forEach((user) => {
-        if (user.id !== myId && !peerConnections.current[user.id]) {
+        if (user.id !== myId) {
           const pc = createPeer(user.id);
+          // Always renegotiate on userlist update
           pc.createOffer().then(offer => {
             pc.setLocalDescription(offer);
+            console.log(`[WebRTC] Sending offer to peer ${user.id}`);
             socket.emit("webrtc-offer", { roomId, to: user.id, from: myId, offer });
           });
         }
@@ -83,6 +88,7 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
 
     // Handle offer
     socket.on("webrtc-offer", async ({ from, offer }) => {
+      console.log(`[WebRTC] Received offer from peer ${from}`);
       const pc = createPeer(from);
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
@@ -91,15 +97,17 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
     });
     // Handle answer
     socket.on("webrtc-answer", async ({ from, answer }) => {
+      console.log(`[WebRTC] Received answer from peer ${from}`);
       const pc = createPeer(from);
       await pc.setRemoteDescription(new RTCSessionDescription(answer));
     });
     // Handle ICE
     socket.on("webrtc-ice", async ({ from, candidate }) => {
+      console.log(`[WebRTC] Received ICE candidate from peer ${from}`);
       const pc = createPeer(from);
       try {
         await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (e) { /* ignore */ }
+      } catch (e) { console.warn("[WebRTC] ICE error", e); }
     });
 
     // Cleanup on unmount

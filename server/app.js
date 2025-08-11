@@ -104,6 +104,17 @@ io.on("connection", (socket) => {
       socket.to(to).emit("webrtc-ice", { from, candidate });
     });
 
+    // --- WebRTC signaling relay ---
+    socket.on("webrtc-offer", ({ roomId, to, from, offer }) => {
+      socket.to(to).emit("webrtc-offer", { from, offer });
+    });
+    socket.on("webrtc-answer", ({ roomId, to, from, answer }) => {
+      socket.to(to).emit("webrtc-answer", { from, answer });
+    });
+    socket.on("webrtc-ice", ({ roomId, to, from, candidate }) => {
+      socket.to(to).emit("webrtc-ice", { from, candidate });
+    });
+
     //cursur move
     socket.on("cursor-move", ({ roomId, x, y, userName, userId }) => {
       io.to(roomId).emit("cursor-move", { x, y, userName, userId });

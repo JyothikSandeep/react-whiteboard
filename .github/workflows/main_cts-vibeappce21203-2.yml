@@ -56,4 +56,5 @@ jobs:
           app-name: 'CTS-VibeAppce21203-2'  # <-- Make sure this matches your Azure Web App name
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.__publishingprofilesecretname__ }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE}}
+

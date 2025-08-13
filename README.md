@@ -67,26 +67,43 @@ The backend runs on /server with npm start.
 
 🌐 Deployment (Azure App Service)
 This project is set up for monorepo deployment to Azure App Service using GitHub Actions.
+
 The backend serves the built frontend from /client/dist.
+
 See .github/workflows/ for the deployment pipeline.
+
 Environment variables should be set in the Azure Portal (not in .env files).
+
 Publish Profile Deployment
+
 Download the publish profile from Azure Portal → App Service → Overview → "Get publish profile".
+
 Add it as a GitHub secret named AZUREAPPSERVICE_PUBLISHPROFILE.
+
 Push to main branch to trigger deployment.
+
 ⚙️ Configuration
+
 CORS: Configured for local and Azure domains.
+
 Socket.IO: Client connects to the correct backend based on environment.
+
 .env: Used locally, but not uploaded to GitHub or Azure.
+
 🤝 Contributing
+
 Contributions are welcome! Please open issues and pull requests.
 
 📄 License
+
 MIT
 
 🙏 Acknowledgements
+
 React
+
 Vite
 Express
 Socket.IO
 Azure App Service
+

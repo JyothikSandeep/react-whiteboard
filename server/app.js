@@ -15,6 +15,7 @@ const { BasicRouter } = require("./Router/BasicRouter");
 
 const rooms = {};
 
+app.use(cors());
 app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist', 'index.html'));
@@ -22,11 +23,10 @@ app.get('*', (req, res) => {
 
 const io = new Server(server, {
   cors: {
-    origin: ["https://scrriblelink.netlify.app","http://localhost:5173"],
+    origin: ["https://cts-vibeappce21203-2.azurewebsites.net","https://scrriblelink.netlify.app","http://localhost:5173"],
     methods: ["GET", "POST"],
   },
 });
-app.use(cors());
 
 io.on("connection", (socket) => {
   console.log("User id connected ", socket.id);

@@ -94,6 +94,8 @@ const WhiteBoard = forwardRef(({ state: roomId, userName, pageId, pinnedPageId }
   };
 
   const [remoteCursors, setRemoteCursors] = useState({});
+  // Animated cursor state for smooth interpolation
+  const [animatedCursors, setAnimatedCursors] = useState({});
 
   const getUserColor = (userName) => {
     const colors = ["#3498db", "#f1c40f", "#2ecc71", "#e74c3c", "#9b59b6"];
@@ -135,34 +137,71 @@ const WhiteBoard = forwardRef(({ state: roomId, userName, pageId, pinnedPageId }
       userName,
     });
 
-    // Emit pointer position for collaborative cursor
-    socket.emit("cursor-move", {
-      pageId: roomId,
-      x,
-      y,
-      userName,
-      userId: socket.id,
-    });
+    // Throttle pointer position events for collaborative cursor
+    if (!handleMouseMove.lastCursorEmit || Date.now() - handleMouseMove.lastCursorEmit > 30) {
+      socket.emit("cursor-move", {
+        pageId: roomId,
+        x,
+        y,
+        userName,
+        userId: socket.id,
+      });
+      handleMouseMove.lastCursorEmit = Date.now();
+    }
 
     // Update last position
     lastPos.current = { x, y };
   };
 
   // Listen for remote cursor-move events
+  // Handle remote cursor movement
+  const handleCursorMove = ({ userId, x, y, userName }) => {
+    if (userId === socket.id) return; // Don't show own cursor as remote
+    setRemoteCursors((prev) => ({
+      ...prev,
+      [userId]: { x, y, userName }
+    }));
+  };
+
   useEffect(() => {
-    const handleCursorMove = ({ userId, x, y, userName }) => {
-      if (userId === socket.id) return; // Don't show own cursor as remote
-      setRemoteCursors((prev) => ({
-        ...prev,
-        [userId]: { x, y, userName }
-      }));
-    };
     socket.on("cursor-move", ({ pageId, ...rest }) => {
       if (pageId !== roomId) return;
       handleCursorMove(rest);
     });
     return () => socket.off("cursor-move", handleCursorMove);
   }, [roomId]);
+
+  useEffect(() => {
+    let raf;
+    const animate = () => {
+      setAnimatedCursors((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        for (const userId in remoteCursors) {
+          const remote = remoteCursors[userId];
+          const anim = prev[userId] || { x: remote.x, y: remote.y };
+          // Interpolate
+          const dx = (remote.x - (anim.x ?? remote.x)) * 0.25;
+          const dy = (remote.y - (anim.y ?? remote.y)) * 0.25;
+          if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+            next[userId] = {
+              ...anim,
+              x: (anim.x ?? remote.x) + dx,
+              y: (anim.y ?? remote.y) + dy,
+              userName: remote.userName
+            };
+            changed = true;
+          } else {
+            next[userId] = { ...anim, x: remote.x, y: remote.y, userName: remote.userName };
+          }
+        }
+        return changed ? next : prev;
+      });
+      raf = requestAnimationFrame(animate);
+    };
+    raf = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(raf);
+  }, [remoteCursors]);
 
   const handleMouseUp = () => {
     isDrawing.current = false;
@@ -232,7 +271,7 @@ const WhiteBoard = forwardRef(({ state: roomId, userName, pageId, pinnedPageId }
         />
         {/* Render remote user cursors */}
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }}>
-          {Object.entries(remoteCursors).map(([userId, { x, y, userName }]) => (
+          {Object.entries(animatedCursors).map(([userId, { x, y, userName }]) => (
             <div
               key={userId}
               style={{

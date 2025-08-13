@@ -3,7 +3,22 @@ import socket from "../Socket";
 import { BiPencil } from "react-icons/bi";
 import './WhiteBoard.css';
 
-const WhiteBoard = forwardRef(({ state: roomId, userName }, ref) => {
+const WhiteBoard = forwardRef(({ state: roomId, userName, pageId, pinnedPageId }, ref) => {
+  // Store drawing actions per page
+  const [drawingActions, setDrawingActions] = useState({}); // { [pageId]: [{x0,y0,x1,y1,userName}] }
+
+  // Fetch drawing actions for this page from server on mount or page change
+  useEffect(() => {
+    socket.emit('get_page_drawing', { pageId: roomId });
+    const handlePageDrawing = ({ pageId: pid, actions }) => {
+      setDrawingActions(prev => ({ ...prev, [pid]: actions }));
+    };
+    socket.on('page_drawing', handlePageDrawing);
+    return () => {
+      socket.off('page_drawing', handlePageDrawing);
+    };
+  }, [roomId]);
+
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
   const isDrawing = useRef(false);
@@ -14,9 +29,13 @@ const WhiteBoard = forwardRef(({ state: roomId, userName }, ref) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
+      // Set both attributes and style for correct export
+      canvas.width = Math.round(rect.width);
+      canvas.height = Math.round(rect.height);
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
     };
+
     setCanvasSize();
     window.addEventListener('resize', setCanvasSize);
 
@@ -28,7 +47,8 @@ const WhiteBoard = forwardRef(({ state: roomId, userName }, ref) => {
     ctx.lineWidth = 2;
     ctxRef.current = ctx;
 
-    const drawFromSocket = ({ x0, y0, x1, y1 }) => {
+    const drawFromSocket = ({ x0, y0, x1, y1, pageId, userName }) => {
+      if (pageId !== roomId) return;
       ctx.save();
       ctx.strokeStyle = '#222';
       ctx.beginPath();
@@ -36,11 +56,18 @@ const WhiteBoard = forwardRef(({ state: roomId, userName }, ref) => {
       ctx.lineTo(x1, y1);
       ctx.stroke();
       ctx.restore();
+      // Store action for this page
+      setDrawingActions(prev => {
+        const arr = prev[pageId] ? [...prev[pageId]] : [];
+        arr.push({ x0, y0, x1, y1, userName });
+        return { ...prev, [pageId]: arr };
+      });
     };
     socket.on("draw", drawFromSocket);
 
     // Collaborative clear-board event
-    const handleClearBoard = () => {
+    const handleClearBoard = ({ pageId }) => {
+      if (pageId !== roomId) return;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
     socket.on("clear-board", handleClearBoard);
@@ -93,8 +120,14 @@ const WhiteBoard = forwardRef(({ state: roomId, userName }, ref) => {
     ctx.restore();
 
     // Emit draw to others
+    // Store action locally for this page
+    setDrawingActions(prev => {
+      const arr = prev[roomId] ? [...prev[roomId]] : [];
+      arr.push({ x0: lastPos.current.x, y0: lastPos.current.y, x1: x, y1: y, userName });
+      return { ...prev, [roomId]: arr };
+    });
     socket.emit("draw", {
-      roomId,
+      pageId: roomId,
       x0: lastPos.current.x,
       y0: lastPos.current.y,
       x1: x,
@@ -104,7 +137,7 @@ const WhiteBoard = forwardRef(({ state: roomId, userName }, ref) => {
 
     // Emit pointer position for collaborative cursor
     socket.emit("cursor-move", {
-      roomId,
+      pageId: roomId,
       x,
       y,
       userName,
@@ -124,20 +157,44 @@ const WhiteBoard = forwardRef(({ state: roomId, userName }, ref) => {
         [userId]: { x, y, userName }
       }));
     };
-    socket.on("cursor-move", handleCursorMove);
+    socket.on("cursor-move", ({ pageId, ...rest }) => {
+      if (pageId !== roomId) return;
+      handleCursorMove(rest);
+    });
     return () => socket.off("cursor-move", handleCursorMove);
-  }, []);
+  }, [roomId]);
 
   const handleMouseUp = () => {
     isDrawing.current = false;
   };
+
+  // Always restore drawing for the current page when drawingActions or roomId changes
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = ctxRef.current;
+    if (!canvas || !ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const actions = drawingActions[roomId] || [];
+    actions.forEach(({ x0, y0, x1, y1 }) => {
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+    });
+  }, [roomId, drawingActions]);
 
   // Clear board method
   const clearBoard = () => {
     const canvas = canvasRef.current;
     const ctx = ctxRef.current;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    socket.emit("clear-board", { roomId });
+    // Clear drawingActions for this page locally
+    setDrawingActions(prev => {
+      const newActions = { ...prev };
+      newActions[roomId] = [];
+      return newActions;
+    });
+    socket.emit("clear-board", { pageId: roomId });
   };
 
   useImperativeHandle(ref, () => ({
@@ -147,8 +204,25 @@ const WhiteBoard = forwardRef(({ state: roomId, userName }, ref) => {
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <div className="whiteboard-container" style={{ position: 'relative', width: '100%', height: '100%' }}>
-        {/* <p className="whiteboard-title">Whiteboard</p> */}
+
+
+        {/* Pin Page overlay button in the whiteboard, top right */}
+        <button
+          style={{ position: 'absolute', top: 16, right: 24, zIndex: 20 }}
+          className={`flex items-center gap-1 px-3 py-1 text-xs rounded-full border-2 transition font-semibold shadow ${
+            pinnedPageId === roomId
+              ? 'bg-green-200 border-green-500 text-green-900' // pinned
+              : 'bg-yellow-100 border-yellow-400 text-yellow-700 hover:bg-yellow-200' // not pinned
+          }`}
+          title="Pin this page as current"
+          onClick={() => {
+            socket.emit('pin_page', { pageId: roomId });
+          }}
+        >
+          📌 Pin Page
+        </button>
         <canvas
+          id={`whiteboard-canvas-${pageId}`}
           ref={canvasRef}
           className="whiteboard-canvas"
           onMouseDown={handleMouseDown}

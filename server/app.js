@@ -4,6 +4,8 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 const server = http.createServer(app);
+const path = require('path');
+
 // Routes
 require('dotenv').config();
 
@@ -12,6 +14,11 @@ const PORT = process.env.PORT || 8000;
 const { BasicRouter } = require("./Router/BasicRouter");
 
 const rooms = {};
+
+app.use(express.static(path.join(__dirname, '../client/dist')));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist', 'index.html'));
+});
 
 const io = new Server(server, {
   cors: {
@@ -33,8 +40,10 @@ io.on("connection", (socket) => {
 
     if (!rooms[roomId]) {
       socket.join(roomId);
-      rooms[roomId] = { adminId:{ id:socket.id,userName:currrentuser}, users: [{id: socket.id, userName: currrentuser}] };
+      rooms[roomId] = { adminId:{ id:socket.id,userName:currrentuser}, users: [{id: socket.id, userName: currrentuser}], pages: [0], drawings: {}, pinnedPageId: 0 };
       io.to(roomId).emit("user_list", { users: rooms[roomId].users });
+      socket.emit("pages_list", { pages: rooms[roomId].pages });
+      socket.emit("pinned_page", { pinnedPageId: rooms[roomId].pinnedPageId });
       socket.emit("identifiedAdmin");
     } else {
       const adminID = rooms[roomId].adminId.id;
@@ -54,6 +63,14 @@ io.on("connection", (socket) => {
       socket.join(roomId);
       if (!rooms[roomId].users.some(u => u.id === socket.id)) {
         rooms[roomId].users.push({id:socket.id,userName:username});
+      }
+      // Send the full pages list to the new user
+      if (rooms[roomId].pages && rooms[roomId].pages.length > 0) {
+        socket.emit("pages_list", { pages: rooms[roomId].pages });
+      }
+      // Send the current pinned page to the new user
+      if (typeof rooms[roomId].pinnedPageId !== 'undefined') {
+        socket.emit("pinned_page", { pinnedPageId: rooms[roomId].pinnedPageId });
       }
       io.to(roomId).emit("user_joined", { socketId: socket.id ,username});
       io.to(roomId).emit("user_list", { users: rooms[roomId].users });
@@ -77,15 +94,41 @@ io.on("connection", (socket) => {
       }
     });
 
+    // Pin a page
+    socket.on("pin_page", ({ pageId }) => {
+      rooms[roomId].pinnedPageId = pageId;
+      io.to(roomId).emit("pinned_page", { pinnedPageId: pageId });
+    });
+
+    // New page creation
+    socket.on("new_page", ({ pageId }) => {
+      if (!rooms[roomId].pages) rooms[roomId].pages = [0];
+      if (!rooms[roomId].pages.includes(pageId)) {
+        rooms[roomId].pages.push(pageId);
+      }
+      io.to(roomId).emit("pages_list", { pages: rooms[roomId].pages });
+    });
+
     //to draw
-    socket.on("draw", ({ roomId, x0, y0, x1, y1 }) => {
-      console.log(roomId, x0, y0, x1, y1);
-      io.to(roomId).emit("draw", { x0, y0, x1, y1 });
+    socket.on("draw", ({ pageId, x0, y0, x1, y1, userName }) => {
+      // Store the drawing action for this page
+      if (!rooms[roomId].drawings) rooms[roomId].drawings = {};
+      if (!rooms[roomId].drawings[pageId]) rooms[roomId].drawings[pageId] = [];
+      rooms[roomId].drawings[pageId].push({ x0, y0, x1, y1, userName });
+      // Broadcast as before
+      io.emit("draw", { x0, y0, x1, y1, pageId, userName });
+    });
+
+    // Serve full drawing for a page
+    socket.on("get_page_drawing", ({ pageId }) => {
+      if (!rooms[roomId].drawings) rooms[roomId].drawings = {};
+      const actions = rooms[roomId].drawings[pageId] || [];
+      socket.emit("page_drawing", { pageId, actions });
     });
 
     // Collaborative clear-board
-    socket.on("clear-board", ({ roomId }) => {
-      io.to(roomId).emit("clear-board");
+    socket.on("clear-board", ({ pageId }) => {
+      io.emit("clear-board", { pageId });
     });
 
     // Chat message
@@ -116,12 +159,13 @@ io.on("connection", (socket) => {
     });
 
     //cursur move
-    socket.on("cursor-move", ({ roomId, x, y, userName, userId }) => {
-      io.to(roomId).emit("cursor-move", { x, y, userName, userId });
+    socket.on("cursor-move", ({ pageId, x, y, userName, userId }) => {
+      io.emit("cursor-move", { pageId, x, y, userName, userId });
     });
   });
 });
 
+app.all('/{*any}', (req, res, next) => {})
 app.use("/", BasicRouter);
 
 server.listen(PORT, () => {

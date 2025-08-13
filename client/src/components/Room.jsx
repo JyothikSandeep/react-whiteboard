@@ -5,6 +5,7 @@ import { useParams } from "react-router-dom";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import WhiteBoard from "./WhiteBoard";
+import DownloadPDFButton from "./DownloadPDFButton";
 // import { useRef } from "react";
 
 //react icons
@@ -35,6 +36,38 @@ import { MdOutlineMarkChatUnread } from "react-icons/md";
 import React, { useRef } from "react";
 
 const Room = () => {
+  // Multi-page state
+  const [pages, setPages] = useState([0]); // Each page can be an integer ID for now
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [pinnedPageId, setPinnedPageId] = useState(null);
+  const [pinNotification, setPinNotification] = useState("");
+
+  // Collaborative page sync: always in sync for all users
+  useEffect(() => {
+    const handlePagesList = ({ pages }) => {
+      setPages(pages); // Do NOT update currentPageIndex here; keep user on their chosen page
+    };
+    const handlePinnedPage = ({ pinnedPageId }) => {
+      setPinnedPageId(pinnedPageId);
+      if (pinnedPageId !== null) {
+        const idx = pages.indexOf(pinnedPageId);
+        if (idx !== -1) {
+          setPinNotification(`Page ${idx + 1} has been pinned as the current page!`);
+        } else {
+          setPinNotification(`A page has been pinned as the current page!`);
+        }
+        setTimeout(() => setPinNotification(""), 2000);
+      }
+    };
+
+    socket.on("pages_list", handlePagesList);
+    socket.on("pinned_page", handlePinnedPage);
+    return () => {
+      socket.off("pages_list", handlePagesList);
+      socket.off("pinned_page", handlePinnedPage);
+    };
+  }, []);
+
   const [showCopiedRoomId, setShowCopiedRoomId] = useState(false);
   const [showCopiedUrl, setShowCopiedUrl] = useState(false);
   const whiteboardRef = useRef(null);
@@ -62,6 +95,14 @@ const Room = () => {
       setCurrentUser(location.state.userName);
     }
   }, [location.state]);
+
+  // Preload all whiteboard drawings for PDF export
+  useEffect(() => {
+    if (!roomId || !pages || pages.length === 0) return;
+    pages.forEach(pid => {
+      socket.emit('get_page_drawing', { pageId: roomId + "-page-" + pid });
+    });
+  }, [pages, roomId]);
 
   useEffect(() => {
     if (!currrentuser) {
@@ -143,8 +184,30 @@ const Room = () => {
     setJoinRequests(joinRequests.filter((d) => d.id !== socketId));
   };
 
+  // End call handler for top-right button
+  const [showCallEnded, setShowCallEnded] = useState(false);
+  const handleEndCall = () => {
+    setMicMuted(true);
+    setShowCallEnded(true);
+    setTimeout(() => {
+      setShowCallEnded(false);
+      window.location.href = "/";
+    }, 1500);
+  };
+
+
+
   return (
     <div className="font-main">
+
+
+      {/* Pin notification */}
+      {pinNotification && (
+        <div className="fixed bottom-16 left-4 z-50 bg-yellow-100/70 border border-yellow-200 text-yellow-700 px-3 py-1 rounded-lg shadow text-xs font-medium animate-fadeIn" style={{opacity: 0.8}}>
+          {pinNotification}
+        </div>
+      )}
+
       {currrentuser === "" ? (
         <>
           <div className="text-center mt-6">
@@ -245,11 +308,12 @@ const Room = () => {
             <span className="ml-2">
               <WebRTCAudio roomId={roomId} userName={currrentuser} socket={socket} isMuted={micMuted} />
             </span>
-
             <div className="flex-1"></div>
+            {/* Download PDF */}
+            <DownloadPDFButton pages={pages} roomId={roomId} />
             {/* Copy Room ID */}
             <button
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-blue-100 border-2 border-gray-400 hover:border-blue-500 text-gray-700 transition"
+              className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 transition focus:outline-none focus:ring-2 focus:ring-gray-200"
               title="Copy Room ID"
               onClick={() => {
                 navigator.clipboard.writeText(roomId);
@@ -266,7 +330,7 @@ const Room = () => {
             {showCopiedRoomId && <span className="ml-1 text-green-600 text-xs font-semibold animate-pulse">Copied!</span>}
             {/* Copy URL */}
             <button
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-blue-100 border-2 border-gray-400 hover:border-blue-500 text-gray-700 transition"
+              className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 transition focus:outline-none focus:ring-2 focus:ring-gray-200"
               title="Copy URL"
               onClick={() => {
                 navigator.clipboard.writeText(window.location.href);
@@ -281,87 +345,155 @@ const Room = () => {
               <span>URL</span>
             </button>
             {showCopiedUrl && <span className="ml-1 text-green-600 text-xs font-semibold animate-pulse">Copied!</span>}
+            {/* End Call button - top right */}
+            <button
+              onClick={handleEndCall}
+              className="flex items-center gap-1 px-3 py-1 text-xs rounded-full bg-red-600 hover:bg-red-700 text-white font-semibold shadow transition-all ml-2"
+              title="End Call"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 15.5a16 16 0 0 0-9-2.5 16 16 0 0 0-9 2.5M8 15v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2" />
+              </svg>
+              End
+            </button>
           </div>
            {/* Whiteboard and Toolbar Container */}
            <div className="w-full flex flex-col items-center">
              <div className="w-full flex flex-col items-center">
-               {roomId && <WhiteBoard ref={whiteboardRef} state={roomId} userName={currrentuser} />}
-               <div className="flex justify-center mt-2">
-                 <div className="flex items-center py-3 px-2 bg-gray-100 rounded-full-xl shadow-sm">
-                   {/* Center group: Main tools */}
-                   <div className="flex gap-4">
 
+               {roomId && (
+  <>
+    <WhiteBoard
+      ref={whiteboardRef}
+      state={roomId + "-page-" + pages[currentPageIndex]}
+      pageId={roomId + "-page-" + pages[currentPageIndex]}
+      userName={currrentuser}
+      key={pages[currentPageIndex]}
+      pinnedPageId={pinnedPageId}
+    />
+    {/* Hidden canvases for PDF export (all pages) */}
+    <div style={{display: 'none'}} aria-hidden="true">
+      {pages.map(pid => (
+        <WhiteBoard
+          key={roomId + "-page-" + pid + "-pdf"}
+          state={roomId + "-page-" + pid}
+          pageId={roomId + "-page-" + pid}
+          userName={currrentuser}
+          pinnedPageId={pinnedPageId}
+        />
+      ))}
+    </div>
+  </>
+)}
 
-                    <button
-                      className={`flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-blue-100 border-2 border-gray-400 hover:border-blue-500 transition ${micMuted ? 'text-red-500' : 'text-green-600'}`}
-                      title={micMuted ? 'Unmute Mic' : 'Mute Mic'}
-                      onClick={() => setMicMuted(m => !m)}
-                    >
-                      {micMuted ? (
-                        <BsMicMute className="text-red-500" size={20} />
-                      ) : (
-                        <MdOutlineKeyboardVoice className="text-green-600" size={20} />
-                      )}
-                    </button>
-                  <button className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-blue-100 border-2 border-gray-400 hover:border-blue-500 text-gray-700 transition">
-                    <VscNewFile className="text-gray-700" size={20} />
-                  </button>
-                  <button className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-blue-100 border-2 border-gray-400 hover:border-blue-500 text-gray-700 transition" onClick={() => whiteboardRef.current?.clearBoard()}>
-                    <TiDocumentDelete className="text-gray-700" size={20} />
-                  </button>
-                    {/* Right group: Users & Chat */}
-                    {joinRequests.length > 0 ? (
-                      <button className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-blue-100 border-2 border-gray-400 hover:border-blue-500 text-gray-700 transition"
-                        onClick={()=>{
-                          (usersDisplay==="hidden"?setUserDisplay("flex"):setUserDisplay("hidden"))
-                        }}
-                        title="View join requests and users"
-                      >
-                        <TbUsersPlus className="text-gray-700" size={20} />
-                        {/* Optionally, add a badge for joinRequests.length */}
-                        {joinRequests.length > 0 && (
-                          <span className="ml-1 inline-flex items-center justify-center w-4 h-4 text-xs font-bold bg-red-400 text-white rounded-full">{joinRequests.length}</span>
-                        )}
-                      </button>
-                    ) : (
-                      <button className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-blue-100 border-2 border-gray-400 hover:border-blue-500 text-gray-700 transition"
-                        onClick={()=>{
-                          (usersDisplay==="hidden"?setUserDisplay("flex"):setUserDisplay("hidden"))
-                        }}
-                        title="View users in room"
-                      >
-                        <LuUsers className="text-gray-700" size={20} />
-                      </button>
-                    )}
-                    {console.log(usersDisplay)}
-
-                    <button className="relative flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-blue-100 border-2 border-gray-400 hover:border-blue-500 text-gray-700 transition"
-            onClick={() => setChatOpen((v)=>!v)}
-            title="Open chat"
-          >
-            <MdChatBubbleOutline className="text-gray-700" size={20} />
-            {unreadCount > 0 && !chatOpen && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-bounce z-10">{unreadCount}</span>
-            )}
-          </button>
-          <audio ref={chatNotifSoundRef} src="https://cdn.pixabay.com/audio/2022/03/15/audio_115b9c7b44.mp3" preload="auto" />
-
-                    <button className="flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 hover:bg-blue-100 border-2 border-gray-400 hover:border-blue-500 text-gray-700 transition"
-                      onClick={() => setChatOpen((prev) => !prev)}
-                      title="Open chat"
-                    >
-                      <MdChatBubbleOutline className="text-gray-700" size={20} />
-                      {/* Optionally, add badge for unread messages in the future */}
-                    </button>
-
-                  </div>
+                <div className="fixed bottom-2 left-1/2 -translate-x-1/2 z-40 inline-flex items-center">
+  <div className="inline-flex items-center gap-3 px-3 py-2 bg-white/90 rounded-full shadow-xl border border-gray-200 backdrop-blur-md">
+    {/* Main tools group */}
+    <div className="flex gap-3 items-center">
+      <button
+        className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition text-base shadow-sm ${micMuted ? 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100' : 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'}`}
+        title={micMuted ? 'Unmute Mic' : 'Mute Mic'}
+        onClick={() => setMicMuted(m => !m)}
+      >
+        {micMuted ? (
+          <BsMicMute className="text-red-500" size={20} />
+        ) : (
+          <MdOutlineKeyboardVoice className="text-green-600" size={20} />
+        )}
+      </button>
+      <button
+        className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition shadow-sm"
+        title="New Page"
+        onClick={() => {
+          const newPageId = Date.now();
+          if (typeof socket.emit === 'function') {
+            socket.emit('new_page', { pageId: newPageId });
+          }
+        }}
+      >
+        <VscNewFile size={18} />
+      </button>
+      <button
+        className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-gray-50 text-gray-700 hover:bg-blue-50 transition shadow-sm"
+        onClick={() => {
+          if (currentPageIndex > 0) {
+            setCurrentPageIndex(currentPageIndex - 1);
+          }
+        }}
+        title="Previous Page"
+        disabled={currentPageIndex === 0}
+      >
+        &#8592;
+      </button>
+      <span className="mx-1 px-2 py-0.5 rounded-full bg-gray-100 border border-gray-300 text-gray-700 font-semibold text-xs shadow-sm select-none">
+        Page {currentPageIndex + 1} / {pages.length}
+      </span>
+      <button
+        className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-gray-50 text-gray-700 hover:bg-blue-50 transition shadow-sm"
+        onClick={() => {
+          if (currentPageIndex < pages.length - 1) {
+            setCurrentPageIndex(currentPageIndex + 1);
+          }
+        }}
+        title="Next Page"
+        disabled={currentPageIndex === pages.length - 1}
+      >
+        &#8594;
+      </button>
+      <button
+        className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-gray-300 bg-gray-50 text-gray-700 hover:bg-blue-50 transition shadow-sm"
+        onClick={() => whiteboardRef.current?.clearBoard()}
+        title="Clear Board"
+      >
+        <TiDocumentDelete size={20} />
+      </button>
+      {/* Users/Join Requests and Chat group */}
+    </div>
+    <div className="flex gap-4 items-center ml-3">  {joinRequests.length > 0 ? (
+        <button
+          className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-yellow-400 bg-yellow-50 text-yellow-800 hover:bg-yellow-100 transition shadow-sm relative ml-2"
+          onClick={() => {
+            usersDisplay === "hidden" ? setUserDisplay("flex") : setUserDisplay("hidden");
+          }}
+          title="View join requests and users"
+        >
+          <TbUsersPlus size={20} />
+          {joinRequests.length > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 text-xs font-bold bg-red-500 text-white rounded-full flex items-center justify-center animate-bounce z-10">
+              {joinRequests.length}
+            </span>
+          )}
+        </button>
+      ) : (
+        <button
+          className="flex items-center justify-center w-8 h-8 rounded-full border-2 border-gray-400 bg-gray-50 text-gray-700 hover:bg-blue-50 transition shadow-sm ml-2"
+          onClick={() => {
+            usersDisplay === "hidden" ? setUserDisplay("flex") : setUserDisplay("hidden");
+          }}
+          title="View users in room"
+        >
+          <LuUsers size={20} />
+        </button>
+      )}
+      <button
+        className="relative flex items-center justify-center w-8 h-8 rounded-full border-2 border-gray-400 bg-gray-50 text-gray-700 hover:bg-blue-50 transition shadow-sm"
+        onClick={() => setChatOpen((v) => !v)}
+        title="Open chat"
+      >
+        <MdChatBubbleOutline size={20} />
+        {unreadCount > 0 && !chatOpen && (
+        <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center animate-bounce z-10">
+          {unreadCount}
+        </span>
+      )}
+      </button>
+      <audio ref={chatNotifSoundRef} src="https://cdn.pixabay.com/audio/2022/03/15/audio_115b9c7b44.mp3" preload="auto" />
+    </div>
+  </div>
+</div>
                 </div>
               </div>
-            </div>
-          </div>
-
-
-          {/* Floating panel for users/join requests */}
+            {/* Floating panel for users/join requests */}
           {usersDisplay === "flex" && (
             <div className="absolute right-4 top-20 z-50 bg-white shadow-xl rounded-2xl p-4 w-80 max-h-[80vh] border border-gray-200 transition-all duration-300 flex flex-col gap-4" style={{minWidth:'260px'}}>
               <div className="flex justify-between items-center mb-2">
@@ -421,6 +553,14 @@ const Room = () => {
             </div>
           )}
         </>
+      )}
+      {/* Call Ended popup */}
+      {showCallEnded && (
+        <div className="fixed inset-0 flex items-center justify-center z-[100]">
+          <div className="bg-black bg-opacity-80 px-8 py-5 rounded-2xl shadow-xl text-white text-2xl font-bold animate-fadeIn">
+            Call Ended
+          </div>
+        </div>
       )}
     </div>
   );

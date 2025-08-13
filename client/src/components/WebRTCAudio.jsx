@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 
 // Minimal WebRTC audio for all users in the room
-function WebRTCAudio({ roomId, userName, socket, isMuted }) {
+import { useNavigate } from "react-router-dom";
+
+function WebRTCAudio({ roomId, userName, socket, isMuted, onEndCall }) {
   const [peerStreams, setPeerStreams] = useState({}); // { peerId: MediaStream }
   const peerConnections = useRef({}); // { peerId: RTCPeerConnection }
   const localStreamRef = useRef(null);
@@ -225,16 +227,52 @@ function WebRTCAudio({ roomId, userName, socket, isMuted }) {
     setMyId(socket.id);
   }, [socket]);
 
+  const navigate = useNavigate();
+  const [showCallEnded, setShowCallEnded] = useState(false);
+  // End call handler
+  const handleEndCall = () => {
+    if (onEndCall) onEndCall();
+    // Close all peer connections
+    Object.values(peerConnections.current).forEach(pc => pc.close());
+    peerConnections.current = {};
+    // Stop and clear local stream
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current = null;
+    }
+    // Remove all peer streams
+    setPeerStreams({});
+    // Show 'Call Ended' popup, then redirect
+    setShowCallEnded(true);
+    setTimeout(() => {
+      setShowCallEnded(false);
+      navigate("/");
+    }, 1500);
+  };
+
+
+
   return (
-    <div className="flex gap-2 items-center">
-      {Object.entries(peerStreams).map(([peerId, stream]) => (
-        <audio key={peerId} ref={el => { if (el) el.srcObject = stream; }} autoPlay />
-      ))}
-      {/* Show connected peer count */}
-      {Object.keys(peerStreams).length > 0 && (
-        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold">{Object.keys(peerStreams).length} peer(s) connected</span>
+    <>
+      <div className="flex gap-2 items-center">
+        {Object.entries(peerStreams).map(([peerId, stream]) => (
+          <audio key={peerId} ref={el => { if (el) el.srcObject = stream; }} autoPlay />
+        ))}
+        {/* Show connected peer count */}
+        {Object.keys(peerStreams).length > 0 && (
+          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold">{Object.keys(peerStreams).length} peer(s) connected</span>
+        )}
+      </div>
+
+      {/* Call Ended popup */}
+      {showCallEnded && (
+        <div className="fixed inset-0 flex items-center justify-center z-[100]">
+          <div className="bg-black bg-opacity-80 px-8 py-5 rounded-2xl shadow-xl text-white text-2xl font-bold animate-fadeIn">
+            Call Ended
+          </div>
+        </div>
       )}
-    </div>
+    </>
   );
 }
 

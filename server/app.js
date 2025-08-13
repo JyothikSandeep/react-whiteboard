@@ -119,6 +119,15 @@ io.on("connection", (socket) => {
       io.emit("draw", { x0, y0, x1, y1, pageId, userName });
     });
 
+    // Clear server-side drawing data for a page
+    socket.on("clear-page-drawing", ({ pageId }) => {
+      if (rooms[roomId] && rooms[roomId].drawings && rooms[roomId].drawings[pageId]) {
+        rooms[roomId].drawings[pageId] = [];
+      }
+      // Broadcast to all clients to clear the board visually
+      io.emit("clear-board", { pageId });
+    });
+
     // Serve full drawing for a page
     socket.on("get_page_drawing", ({ pageId }) => {
       if (!rooms[roomId].drawings) rooms[roomId].drawings = {};

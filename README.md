@@ -1,37 +1,92 @@
-<<<<<<< HEAD
-# Introduction 
-TODO: Give a short introduction of your project. Let this section explain the objectives or the motivation behind this project. 
-
-# Getting Started
-TODO: Guide users through getting your code up and running on their own system. In this section you can talk about:
-1.	Installation process
-2.	Software dependencies
-3.	Latest releases
-4.	API references
-
-# Build and Test
-TODO: Describe and show how to build your code and run the tests. 
-
-# Contribute
-TODO: Explain how other users and developers can contribute to make your code better. 
-
-If you want to learn more about creating good readme files then refer the following [guidelines](https://docs.microsoft.com/en-us/azure/devops/repos/git/create-a-readme?view=azure-devops). You can also seek inspiration from the below readme files:
-- [ASP.NET Core](https://github.com/aspnet/Home)
-- [Visual Studio Code](https://github.com/Microsoft/vscode)
-- [Chakra Core](https://github.com/Microsoft/ChakraCore)
-=======
 # react-whiteboard
-A live whiteboard app where multiple users can:
 
-Draw together in real time
+A collaborative, real-time whiteboard application built with React (Vite), Node.js/Express, and Socket.IO. Users can draw together, chat, create rooms, and export whiteboards as PDFs.
 
-Chat using a real-time chat window
+---
 
-Add animated sticky notes using GSAP
+## 🚀 Features
 
-See cursors of other users live
+- Real-time collaborative drawing
+- Multi-page whiteboard with room system
+- Live chat between users
+- PDF export of all whiteboard pages
+- Animated sticky notes (GSAP)
+- See other users’ live cursors
+- Admin and join request system
 
-Create rooms and collaborate with others
+---
 
+## 🛠️ Getting Started
 
->>>>>>> 6f121e21ee7a07fea2812897580192ef4e45e8c4
+### Prerequisites
+
+- Node.js (v18+ recommended)
+- npm
+
+### Installation
+
+1. **Clone the repo:**
+   ```sh
+   git clone [https://github.com/JyothikSandeep/react-whiteboard.git](https://github.com/JyothikSandeep/react-whiteboard.git)
+   cd react-whiteboard
+   ```
+2. Install dependencies:
+Frontend:
+```sh
+cd client
+npm install
+```
+
+Backend:
+
+```sh
+cd ../server
+npm install
+```
+
+Running Locally
+Build the frontend:
+
+```sh
+cd client
+npm run build
+
+```
+
+Start the backend (serves frontend as well):
+
+```sh
+cd ../server
+npm start
+
+```
+
+Development mode:
+You can run npm run dev in /client for hot-reload React development.
+The backend runs on /server with npm start.
+
+🌐 Deployment (Azure App Service)
+This project is set up for monorepo deployment to Azure App Service using GitHub Actions.
+The backend serves the built frontend from /client/dist.
+See .github/workflows/ for the deployment pipeline.
+Environment variables should be set in the Azure Portal (not in .env files).
+Publish Profile Deployment
+Download the publish profile from Azure Portal → App Service → Overview → "Get publish profile".
+Add it as a GitHub secret named AZUREAPPSERVICE_PUBLISHPROFILE.
+Push to main branch to trigger deployment.
+⚙️ Configuration
+CORS: Configured for local and Azure domains.
+Socket.IO: Client connects to the correct backend based on environment.
+.env: Used locally, but not uploaded to GitHub or Azure.
+🤝 Contributing
+Contributions are welcome! Please open issues and pull requests.
+
+📄 License
+MIT
+
+🙏 Acknowledgements
+React
+Vite
+Express
+Socket.IO
+Azure App Service

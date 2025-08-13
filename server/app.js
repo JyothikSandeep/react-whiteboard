@@ -169,5 +169,5 @@ app.all('/{*any}', (req, res, next) => {})
 app.use("/", BasicRouter);
 
 server.listen(PORT, () => {
-  console.log("server is listening to the port");
+  console.log("server is listening to the port",PORT);
 });

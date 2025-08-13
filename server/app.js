@@ -165,8 +165,8 @@ io.on("connection", (socket) => {
   });
 });
 
-app.all('/{*any}', (req, res, next) => {})
-app.use("/", BasicRouter);
+// app.all('/{*any}', (req, res, next) => {})
+app.use("/test", BasicRouter);
 
 server.listen(PORT, () => {
   console.log("server is listening to the port",PORT);
